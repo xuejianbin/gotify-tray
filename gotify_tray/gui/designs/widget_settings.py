@@ -90,6 +90,20 @@ class Ui_Dialog(object):
         spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
         self.gridLayout_3.addItem(spacerItem1, 0, 1, 1, 1)
         self.verticalLayout_4.addWidget(self.groupBox_server_info)
+
+        # 新增的启动设置代码
+        self.groupBox_startup = QtWidgets.QGroupBox(parent=self.tab_general)
+        self.groupBox_startup.setObjectName("groupBox_startup")
+
+        self.verticalLayout_startup = QtWidgets.QVBoxLayout(self.groupBox_startup)
+        self.verticalLayout_startup.setObjectName("verticalLayout_startup")
+
+        self.cb_auto_start = QtWidgets.QCheckBox(parent=self.groupBox_startup)
+        self.cb_auto_start.setObjectName("cb_auto_start")
+        self.verticalLayout_startup.addWidget(self.cb_auto_start)
+
+        self.verticalLayout_4.addWidget(self.groupBox_startup)
+
         spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.verticalLayout_4.addItem(spacerItem2)
         self.tabWidget.addTab(self.tab_general, "")
@@ -355,6 +369,8 @@ class Ui_Dialog(object):
         self.pb_open_log.setText(_translate("Dialog", "..."))
         self.label_logging.setText(_translate("Dialog", "级别"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_advanced), _translate("Dialog", "高级"))
+        self.groupBox_startup.setTitle(_translate("Dialog", "启动设置"))
+        self.cb_auto_start.setText(_translate("Dialog", "开机自动启动"))
 
     def add_id(self):
         id, ok = QtWidgets.QInputDialog.getText(self.listWidget_ids, "添加应用id", "输入应用id:")

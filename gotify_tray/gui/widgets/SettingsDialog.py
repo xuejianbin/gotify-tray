@@ -1,6 +1,7 @@
 import logging
 import platform
 import os
+import sys
 
 from gotify_tray.__version__ import __version__
 from gotify_tray.database import Cache, Settings
@@ -27,8 +28,8 @@ settings = Settings("gotify-tray")
 class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
     quit_requested = QtCore.pyqtSignal()
 
-    def __init__(self):
-        super(SettingsDialog, self).__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.setupUi(self)
         self.setWindowTitle("Settings")
         
@@ -39,6 +40,9 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
         self.initUI()
 
         self.link_callbacks()
+
+        # 连接开机自启动选项更改信号到槽函数
+        self.cb_auto_start.stateChanged.connect(self.on_auto_start_changed)
 
     def initUI(self):
         self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Apply).setEnabled(False)
@@ -101,6 +105,11 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
         self.label_qt_version.setText(QtCore.QT_VERSION_STR)
         self.label_app_icon.setPixmap(QtGui.QIcon(get_image("logo.ico")).pixmap(22,22))
         self.label_qt_icon.setPixmap(QtGui.QIcon(get_image("qt.png")).pixmap(22,22))
+        saved_auto_start = settings.value("tray/startup/auto_start", type=bool)
+        if saved_auto_start is None:
+            saved_auto_start = self.is_auto_start_enabled()
+        self.cb_auto_start.setChecked(saved_auto_start)
+        logger.debug(f"InitUI: saved_auto_start={saved_auto_start}")
 
     def add_message_widget(self):
         self.message_widget = MessageWidget(
@@ -127,8 +136,8 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
     def set_value(self, key: str, value: Any, widget: QtWidgets.QWidget):
         """Set a Settings value, only if the widget's value_changed attribute has been set
         """
-        if hasattr(widget, "value_changed"):
-            settings.setValue(key, value)
+        settings.setValue(key, value)
+        logger.debug(f"SetValue: key={key}, value={value}")
 
     def connect_signal(self, signal: QtCore.pyqtBoundSignal, widget: QtWidgets.QWidget):
         """Connect to a signal and set the value_changed attribute for a widget on trigger
@@ -300,7 +309,92 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
         self.set_value("watchdog/enabled", self.groupbox_watchdog.isChecked(), self.groupbox_watchdog)
         self.set_value("watchdog/interval/s", self.spin_watchdog_interval.value(), self.spin_watchdog_interval)
 
+        auto_start_enabled = self.cb_auto_start.isChecked()
+        self.set_value("tray/startup/auto_start", auto_start_enabled, self.cb_auto_start)
+        logger.debug(f"ApplySettings: auto_start_enabled={auto_start_enabled}")
+        self.set_auto_start(auto_start_enabled)
+        # 添加日志记录以确保设置正确保存
+        saved_auto_start = settings.value("tray/startup/auto_start", type=bool)
+        logger.debug(f"ApplySettings: saved_auto_start after set_value={saved_auto_start}")
+
         self.settings_changed = False
         self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Apply).setEnabled(False)
 
         self.changes_applied = True
+
+    def set_auto_start(self, enable: bool):
+        if platform.system() == "Windows":
+            self.set_auto_start_windows(enable)
+        elif platform.system() == "Linux":
+            self.set_auto_start_linux(enable)
+
+    def set_auto_start_windows(self, enable: bool):
+        import winreg as reg
+
+        key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        app_name = "GotifyTray"
+        app_path = sys.executable
+
+        with reg.OpenKey(reg.HKEY_CURRENT_USER, key, 0, reg.KEY_ALL_ACCESS) as reg_key:
+            if enable:
+                reg.SetValueEx(reg_key, app_name, 0, reg.REG_SZ, app_path)
+            else:
+                reg.DeleteValue(reg_key, app_name)
+
+    def set_auto_start_linux(self, enable: bool):
+        desktop_file = os.path.expanduser("~/.config/autostart/gotifytray.desktop")
+        if enable:
+            os.makedirs(os.path.dirname(desktop_file), exist_ok=True)
+            with open(desktop_file, "w") as f:
+                f.write(f"""
+[Desktop Entry]
+Type=Application
+Exec={os.path.join(os.getcwd(), "gotify-tray")}
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name=GotifyTray
+Comment=Start GotifyTray on login
+""")
+        else:
+            if os.path.exists(desktop_file):
+                os.remove(desktop_file)
+
+    def is_auto_start_enabled(self) -> bool:
+        if platform.system() == "Windows":
+            enabled = self.is_auto_start_enabled_windows()
+        elif platform.system() == "Linux":
+            enabled = self.is_auto_start_enabled_linux()
+        else:
+            enabled = False
+        logger.debug(f"is_auto_start_enabled: enabled={enabled}")
+        return enabled
+
+    def is_auto_start_enabled_windows(self) -> bool:
+        import winreg as reg
+
+        key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        app_name = "GotifyTray"
+
+        with reg.OpenKey(reg.HKEY_CURRENT_USER, key, 0, reg.KEY_READ) as reg_key:
+            try:
+                reg.QueryValueEx(reg_key, app_name)
+                return True
+            except FileNotFoundError:
+                return False
+
+    def is_auto_start_enabled_linux(self) -> bool:
+        desktop_file = os.path.expanduser("~/.config/autostart/gotifytray.desktop")
+        return os.path.exists(desktop_file)
+
+    def on_auto_start_changed(self):
+        # 更新 apply 按钮状态
+        self.update_apply_button_state()
+        logger.debug(f"on_auto_start_changed: auto_start_checked={self.cb_auto_start.isChecked()}")
+
+    def update_apply_button_state(self):
+        # 检查是否需要启用 apply 按钮
+        if self.cb_auto_start.isChecked() != self.is_auto_start_enabled():
+            self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Apply).setEnabled(True)
+        else:
+            self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Apply).setEnabled(False)
