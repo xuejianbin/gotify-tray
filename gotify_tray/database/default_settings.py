@@ -35,4 +35,5 @@ DEFAULT_SETTINGS = {
     "ImagePopup/h": 400,
     "ids_filter/enabled": False,
     "ids_filter/ids": [],
+    "auto_start/enabled": False,
 }
