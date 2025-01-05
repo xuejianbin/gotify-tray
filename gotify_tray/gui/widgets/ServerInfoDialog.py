@@ -20,6 +20,7 @@ class ServerInfoDialog(QtWidgets.QDialog, Ui_Dialog):
         self.line_url.setPlaceholderText("https://gotify.example.com")
         self.line_url.setText(url)
         self.line_token.setText(token)
+        self.line_token.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
         self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).setDisabled(True)
         self.pb_import.setVisible(enable_import)
         self.link_callbacks()
