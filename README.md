@@ -29,9 +29,9 @@ A tray notification application for receiving messages from a [Gotify server](ht
 - Manually delete received messages.
 - Go through a history of all previously received messages.
 - Receive missed messages after losing network connection.
-- add auto startup when boot (new)
-- add app id filter when the notification you want not to show (new)
-- hide the server secret key (new)
+- add auto startup when boot <span style="color:red">(new)</span>
+- add app id filter when the notification you want not to show <span style="color:red">(new)</span>
+- hide the server secret key <span style="color:red">(new)</span>
 
 
 ## Images
